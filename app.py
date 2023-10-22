@@ -1,5 +1,6 @@
 from methods import *
-
+from comparesignals import SignalSamplesAreEqual
+from os import path
 # title
 st.title("DSP Task 1")
 if 'Addition_uploaded_files' not in st.session_state:
@@ -21,11 +22,12 @@ if 'Shifter' not in st.session_state:
 if 'Normalization_Signal' not in st.session_state:
     st.session_state.Normalization_Signal = None
 if 'Normalizer_min' not in st.session_state:
-    st.session_state.Normalizer_min = 0
+    st.session_state.Normalizer_min = -1
 if 'Normalizer_max' not in st.session_state:
     st.session_state.Normalizer_max = 1
 if 'Accumulation_Signal' not in st.session_state:
     st.session_state.Accumulation_Signal = None
+
 
 with st.sidebar:
     select = st.radio("mode", ('Read Signal', 'Generate Signal', 'Arithmetic Operations'), index=0)
@@ -68,7 +70,8 @@ elif select == "Arithmetic Operations":
             "Operation",
             ('Addition', 'Subtraction', 'Multiplication', 'Squaring', 'Shifting', 'Normalization', 'Accumulation'),
             index=0,
-            horizontal=True
+            horizontal=True,
+            on_change=when_changed
         )
 
         if operation == "Addition":
@@ -86,28 +89,119 @@ elif select == "Arithmetic Operations":
             st.session_state.Shifter = st.number_input("Phase Shift", value=0)
         if operation == "Normalization":
             st.session_state.Normalization_Signal = st.file_uploader("Signal", type="txt", key="normalization")
-            st.session_state.Normalizer_max = st.number_input("Max", value=1, min_value=st.session_state.Normalizer_min)
-            st.session_state.Normalizer_min = st.number_input("Min", value=0, max_value=st.session_state.Normalizer_max)
+            st.session_state.Normalizer_max = st.number_input("Max", value=st.session_state.Normalizer_max, min_value=st.session_state.Normalizer_min)
+            st.session_state.Normalizer_min = st.number_input("Min", value=st.session_state.Normalizer_min, max_value=st.session_state.Normalizer_max)
         if operation == "Accumulation":
             st.session_state.Accumulation_Signal = st.file_uploader("Signal", type="txt", key="accumulation")
-    if len(st.session_state.Addition_uploaded_files) >= 1:
+    if len(st.session_state.Addition_uploaded_files) > 1:
         Signal = Addition(st.session_state.Addition_uploaded_files)
         plot_chart(Signal)
+        if st.session_state.Addition_uploaded_files[0].name == "Signal1.txt":
+            if st.session_state.Addition_uploaded_files[1].name == "Signal2.txt":
+                print("Signal1.txt + Signal2.txt")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/Signal1+signal2.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
+            if st.session_state.Addition_uploaded_files[1].name == "signal3.txt":
+                print("Signal1.txt + Signal3.txt")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/signal1+signal3.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
     if st.session_state.Subtraction_Signal1 is not None and st.session_state.Subtraction_Signal2 is not None:
         Signal = Subtraction(st.session_state.Subtraction_Signal1, st.session_state.Subtraction_Signal2)
         plot_chart(Signal)
+        if st.session_state.Subtraction_Signal1.name == "Signal1.txt":
+            if st.session_state.Subtraction_Signal2.name == "Signal2.txt":
+                print("Signal1.txt - Signal2.txt")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/signal1-signal2.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
+            if st.session_state.Subtraction_Signal2.name == "signal3.txt":
+                print("Signal1.txt - Signal3.txt")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/signal1-signal3.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
     if st.session_state.Multiplication_Signal is not None:
         Signal = Multiplication(st.session_state.Multiplication_Signal, st.session_state.Multiplier)
         plot_chart(Signal)
+        if st.session_state.Multiplication_Signal.name == "Signal1.txt":
+            if st.session_state.Multiplier == 5:
+                print("Signal1.txt Multiply by 5")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/MultiplySignalByConstant-Signal1 - by 5.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
+        if st.session_state.Multiplication_Signal.name == "Signal2.txt":
+            if st.session_state.Multiplier == 10:
+                print("Signal2.txt Multiply by 10")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/MultiplySignalByConstant-signal2 - by 10.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
     if st.session_state.Squaring_Signal is not None:
         Signal = Squaring(st.session_state.Squaring_Signal)
         plot_chart(Signal)
+        if st.session_state.Squaring_Signal.name == "Signal1.txt":
+            print("Signal1.txt Squaring")
+            SignalSamplesAreEqual(
+                path.relpath("signals/output signals/Output squaring signal 1.txt"),
+                Signal[:, 0],
+                Signal[:, 1]
+            )
     if st.session_state.Shifting_Signal is not None:
         Signal = Shifting(st.session_state.Shifting_Signal, st.session_state.Shifter)
         plot_chart(Signal)
+        if st.session_state.Shifting_Signal.name == "Input Shifting.txt":
+            if st.session_state.Shifter == 500:
+                print("Shifting.txt Shifting by add 500")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/output shifting by add 500.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
+            if st.session_state.Shifter == -500:
+                print("Shifting.txt Shifting by minus 500")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/output shifting by minus 500.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
     if st.session_state.Normalization_Signal is not None:
         Signal = Normalization(st.session_state.Normalization_Signal, st.session_state.Normalizer_max, st.session_state.Normalizer_min)
         plot_chart(Signal)
+        if st.session_state.Normalization_Signal.name == "Signal1.txt":
+            if st.session_state.Normalizer_max == 1 and st.session_state.Normalizer_min == -1:
+                print("Normalize Signal1.txt max=1 min=-1")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/normalize of signal 1 -- output.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
+        if st.session_state.Normalization_Signal.name == "Signal2.txt":
+            if st.session_state.Normalizer_max == 1 and st.session_state.Normalizer_min == 0:
+                print("Normalize Signal1.txt max=1 min=0")
+                SignalSamplesAreEqual(
+                    path.relpath("signals/output signals/normlize signal 2 -- output.txt"),
+                    Signal[:, 0],
+                    Signal[:, 1]
+                )
     if st.session_state.Accumulation_Signal is not None:
         Signal = Accumulation(st.session_state.Accumulation_Signal)
         plot_chart(Signal)
+        if st.session_state.Accumulation_Signal.name == "Signal1.txt":
+            print("accumulation for signal1.txt")
+            SignalSamplesAreEqual(
+                path.relpath("signals/output signals/output accumulation for signal1.txt"),
+                Signal[:, 0],
+                Signal[:, 1]
+            )
