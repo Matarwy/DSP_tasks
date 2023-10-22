@@ -4,6 +4,21 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
 
+def when_changed():
+    st.session_state.Addition_uploaded_files = []
+    st.session_state.Subtraction_Signal1 = None
+    st.session_state.Subtraction_Signal2 = None
+    st.session_state.Multiplication_Signal = None
+    st.session_state.Multiplier = 1
+    st.session_state.Squaring_Signal = None
+    st.session_state.Shifting_Signal = None
+    st.session_state.Shifter = 0
+    st.session_state.Normalization_Signal = None
+    st.session_state.Normalizer_min = -1
+    st.session_state.Normalizer_max = 1
+    st.session_state.Accumulation_Signal = None
+
+
 def plot_chart(signal):
     chart = make_subplots(rows=1, cols=1)
     chart.add_trace(go.Scatter(y=signal[:, 1], x=signal[:, 0], mode="lines", name="continuous"), row=1, col=1)
@@ -131,7 +146,6 @@ def Accumulation(SignalA):
         sum = 0.0
         for s in range(0, (n +1)):
             sum += signalm[s, 1]
-        print(sum)
         signal.append([n, sum])
     Signal = np.array(signal)
     return Signal
