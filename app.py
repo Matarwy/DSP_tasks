@@ -1,5 +1,7 @@
 from methods import *
 from comparesignals import SignalSamplesAreEqual
+from QuanTest1 import *
+from QuanTest2 import *
 from os import path
 # title
 st.title("DSP Task 1")
@@ -27,10 +29,30 @@ if 'Normalizer_max' not in st.session_state:
     st.session_state.Normalizer_max = 1
 if 'Accumulation_Signal' not in st.session_state:
     st.session_state.Accumulation_Signal = None
-
+if 'Quantization_file' not in st.session_state:
+    st.session_state.Quantization_file = None
+if 'num_of_levels' not in st.session_state:
+    st.session_state.num_of_levels = 0
+if 'dft_file' not in st.session_state:
+    st.session_state.dft_file = None
+if 'dft_fs' not in st.session_state:
+    st.session_state.dft_fs = 0
+if 'timedomain_signal' not in st.session_state:
+    st.session_state.timedomain_signal = []
+if 'freqdomain_signal' not in st.session_state:
+    st.session_state.freqdomain_signal = []
 
 with st.sidebar:
-    select = st.radio("mode", ('Read Signal', 'Generate Signal', 'Arithmetic Operations'), index=0)
+    select = st.radio(
+        "mode",
+        (
+            'Read Signal',
+            'Generate Signal',
+            'Arithmetic Operations',
+            'Quantization',
+            'Frequency Domain'
+        ),
+        index=0)
 if select == "Read Signal":
     with st.sidebar:
         uploaded_files = st.file_uploader("Choose your file", type="txt", key="load", accept_multiple_files=True)
@@ -205,3 +227,109 @@ elif select == "Arithmetic Operations":
                 Signal[:, 0],
                 Signal[:, 1]
             )
+elif select == "Quantization":
+    with st.sidebar:
+        st.session_state.Quantization_file = st.file_uploader("Signal", type="txt", key="quantization")
+        lev_type = st.radio("choose input type", ("Levels", "Bits"), index=0)
+    if lev_type == "Levels":
+        with st.sidebar:
+            st.session_state.num_of_levels = int(st.number_input("levels", min_value=1, key="levels"))
+
+    elif lev_type == "Bits":
+        with st.sidebar:
+            st.session_state.num_of_levels = 2 ** st.number_input("levels", min_value=1, key="bits")
+    if st.session_state.Quantization_file is not None:
+        interval, encoded, quntized, errors = Quantization(
+            st.session_state.Quantization_file,
+            st.session_state.num_of_levels
+        )
+        # output_file_1 = path.relpath('signals/task3/Test 1/Quan1_Out.txt')
+        output_file_2 = path.relpath('signals/task3/Test 2/Quan2_Out.txt')
+        # QuantizationTest1(output_file_1, encoded, quntized[:, 1])
+        QuantizationTest2(output_file_2, interval, encoded, quntized[:, 1], errors[:, 1])
+        chart = make_subplots(rows=1, cols=1)
+        chart.add_trace(go.Scatter(y=quntized[:, 1], x=quntized[:, 0], mode="lines", name="Quntized"), row=1, col=1)
+
+        chart.add_trace(
+            go.Scatter(
+                y=quntized[:, 1],
+                x=quntized[:, 0],
+                error_y=dict(
+                    type='data',
+                    array=errors[:, 1],
+                    visible=True,
+                    symmetric=False
+                ),
+                mode="markers",
+                name="ERROR"),
+            row=1, col=1)
+        chart.update_xaxes(title_text='Index')
+        chart.update_yaxes(title_text='Level')
+        chart.update_layout(autosize=True)
+        st.plotly_chart(chart, use_container_width=True)
+elif select == "Frequency Domain":
+    with st.sidebar:
+        st.session_state.dft_file = st.file_uploader("Signal", type="txt")
+        st.session_state.dft_fs = st.number_input("FS", min_value=1)
+    if st.session_state.dft_file is not None:
+        SignalType, IsPeriodic, N1, signalm = read_file(st.session_state.dft_file)
+        dft(SignalType, N1, signalm, st.session_state.dft_fs)
+        freqamplitudevalue = ""
+        freqphasevalue = ""
+        for freq in st.session_state.freqdomain_signal:
+            freqamplitudevalue += f"{freq[1]}\n"
+            freqphasevalue += f"{freq[2]}\n"
+
+        with st.sidebar:
+            col1, col2 = st.columns(2)
+            with col1:
+                write_file = st.button("Write to TXT", type="primary")
+            with col2:
+                update_signal = st.button("Update", type="primary")
+            freqamplitude = st.text_area('Update the Amplitude', value=freqamplitudevalue)
+            freqphase = st.text_area('Update the Phase shift', value=freqphasevalue)
+
+        if write_file:
+            # Open a text file for writing
+            with open("result.txt", "w") as file:
+                lines = f"1\n0\n{len(st.session_state.freqdomain_signal)}\n"
+                for freq in st.session_state.freqdomain_signal:
+                    lines += f"{freq[0]} {freq[1]} {freq[2]}\n"
+                # Write the square root value to the file
+                file.write(lines)
+
+        if update_signal:
+            rowsamp = freqamplitude.strip().split("\n")
+            rowsphase = freqphase.strip().split("\n")
+            updated_array_amp = [list(map(float, row.strip().split())) for row in rowsamp]
+            updated_array_phase = [list(map(float, row.strip().split())) for row in rowsphase]
+            updated_array_amp = np.array(updated_array_amp)
+            updated_array_phase = np.array(updated_array_phase)
+            if len(updated_array_phase) == len(updated_array_amp):
+                new_freqdomain_signal = []
+                for i in range(0, len(updated_array_amp)):
+                    newFreq = i * st.session_state.freqdomain_signal[1,0]
+                    new_freqdomain_signal.append([
+                        newFreq,
+                        updated_array_amp[i, 0],
+                        updated_array_phase[i, 0]
+                    ])
+                new_freqdomain_signal = np.array(new_freqdomain_signal)
+                st.session_state.freqdomain_signal = new_freqdomain_signal
+                dft(
+                    SignalType=1,
+                    N1=len(st.session_state.freqdomain_signal),
+                    signal=st.session_state.freqdomain_signal,
+                    fs=st.session_state.dft_fs
+                )
+            else:
+                print("Error, while updating signal")
+        st.header("Time Domain")
+        plot_chart(st.session_state.timedomain_signal)
+        st.header("Frequency Domain")
+        plot_bar(st.session_state.freqdomain_signal)
+
+
+
+
+

@@ -2,6 +2,7 @@ import numpy as np
 import streamlit as st
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+import math
 
 
 def when_changed():
@@ -25,6 +26,33 @@ def plot_chart(signal):
     chart.add_trace(go.Scatter(y=signal[:, 1], x=signal[:, 0], mode="markers", name="discrete"), row=1, col=1)
     chart.update_xaxes(title_text='Index')
     chart.update_yaxes(title_text='SampleAmp')
+    chart.update_layout(autosize=True)
+    st.plotly_chart(chart, use_container_width=True)
+
+
+def plot_bar(signal):
+    chart = make_subplots(rows=1, cols=1)
+    chart.add_trace(go.Bar(
+        x=st.session_state.freqdomain_signal[:, 0],
+        y=st.session_state.freqdomain_signal[:, 1],
+        marker=dict(color='red'), width=0.2,
+        text=['{:.1f}'.format(x[1]) for x in st.session_state.freqdomain_signal],
+        textposition='outside'
+    ))
+    chart.update_xaxes(title_text='frequency')
+    chart.update_yaxes(title_text='amplitude')
+    chart.update_layout(autosize=True)
+    st.plotly_chart(chart, use_container_width=True)
+    chart = make_subplots(rows=1, cols=1)
+    chart.add_trace(go.Bar(
+        x=st.session_state.freqdomain_signal[:, 0],
+        y=st.session_state.freqdomain_signal[:, 2],
+        marker=dict(color='green'), width=0.2,
+        text=['{:.1f}'.format(x[2]) for x in st.session_state.freqdomain_signal],
+        textposition='outside'
+    ))
+    chart.update_xaxes(title_text='frequency')
+    chart.update_yaxes(title_text='phase shift')
     chart.update_layout(autosize=True)
     st.plotly_chart(chart, use_container_width=True)
 
@@ -149,3 +177,81 @@ def Accumulation(SignalA):
         signal.append([n, sum])
     Signal = np.array(signal)
     return Signal
+
+
+def Quantization(signal_input, num_of_levels):
+    quntized = []
+    errors = []
+    ranges = []
+    midpoints = []
+    encoded = []
+    interval = []
+    SignalType, IsPeriodic, N1, signal = read_file(signal_input)
+    max_value = max(signal[:, 1])
+    min_value = min(signal[:, 1])
+    delta = (max_value - min_value) / num_of_levels
+    sum = min_value
+    for i in range(0, num_of_levels):
+        max_range = sum + delta
+        ranges.append([round(sum, 5), round(max_range, 5)])
+        midpoints.append(round((sum + max_range)/2, 5))
+        sum = max_range
+
+    for sample in signal:
+        for i in range(0, len(ranges)):
+            if ranges[i][0] <= sample[1] <= ranges[i][1]:
+                quntized.append([sample[0], midpoints[i]])
+                interval.append(i + 1)
+                encoded.append(bin(i)[2:].zfill(int(np.log2(num_of_levels))))
+                errors.append([sample[0], round(midpoints[i] - sample[1], 5)])
+                break
+    interval = np.array(interval)
+    encoded = np.array(encoded)
+    quntized = np.array(quntized)
+    errors = np.array(errors)
+    return interval, encoded, quntized, errors
+
+
+def dft(SignalType, N1, signal, fs):
+    if SignalType == 0:
+        st.session_state.timedomain_signal = signal
+        freqdomain_signal = []
+        omega = (2 * np.pi * fs) / N1
+        for k in range(0, N1):
+            real = 0
+            imagine = 0
+            for n in range(0, N1):
+                if k == 0 and n == 0:
+                    real += signal[n, 1]
+                else:
+                    e_power = ((2 * math.pi * k * n) / N1)
+                    real += (signal[n, 1] * np.cos(e_power))
+                    imagine += (signal[n, 1] * np.sin(e_power) * -1)
+            freqdomain_signal.append([
+                float((k+1) * omega),
+                float(math.sqrt((real ** 2) + (imagine ** 2))),
+                float(math.atan2(imagine, real))
+            ])
+            st.session_state.freqdomain_signal = np.array(freqdomain_signal)
+    if SignalType == 1:
+        st.session_state.freqdomain_signal = signal
+        timedomain_signal = []
+        for n in range(0, N1):
+            realsum = 0
+            imaginsum = 0
+            for k in range(0, N1):
+                real = signal[k, 1] * np.cos(signal[k, 2])
+                imagine = signal[k, 1] * np.sin(signal[k, 2])
+                e_power = (2 * math.pi * n * k) / N1
+                realsum += round((real * np.cos(e_power)) - (imagine * np.sin(e_power)), 2)
+                imaginsum += round((imagine * np.cos(e_power)) + (real * np.sin(e_power)), 2)
+            if imaginsum != 0:
+                print("Error: while calculating imagine part in idft")
+            sample = realsum / N1
+            timedomain_signal.append([
+                n,
+                float(sample)
+            ])
+            st.session_state.timedomain_signal = np.array(timedomain_signal)
+
+
