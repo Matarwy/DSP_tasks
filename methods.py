@@ -3,6 +3,8 @@ import streamlit as st
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import math
+from os import path
+from comparesignal2 import SignalSamplesAreEqual as ssae
 
 
 def when_changed():
@@ -74,10 +76,15 @@ def read_file(file):
         if SignalType == 1:
             for row in rows:
                 values = row.split()
-                Freq = float(values[0].strip())
-                Amp = float(values[1].strip())
-                PhaseShift = float(values[2].strip())
-                signal.append([Freq, Amp, PhaseShift])
+                if len(values) == 2:
+                    Amp = float(values[0].strip())
+                    PhaseShift = float(values[1].strip())
+                    signal.append([Amp, PhaseShift])
+                elif len(values) == 3:
+                    Freq = float(values[0].strip())
+                    Amp = float(values[1].strip())
+                    PhaseShift = float(values[2].strip())
+                    signal.append([Freq, Amp, PhaseShift])
         Signal = np.array(signal)
         return SignalType, IsPeriodic, N1, Signal
     except:
@@ -212,46 +219,81 @@ def Quantization(signal_input, num_of_levels):
     return interval, encoded, quntized, errors
 
 
-def dft(SignalType, N1, signal, fs):
+def dft(SignalType, N1, signal, fs, operation="dft", dc=False):
     if SignalType == 0:
+        if dc:
+            meanofsignal = np.sum(signal[:, 1]) / len(signal)
+            for sam in signal:
+                sam[1] -= meanofsignal
+            if st.session_state.dft_file.name == "DC_component_input.txt":
+                ssae(
+                    path.relpath("signals/task5/Remove DC component/DC_component_output.txt"),
+                    signal[:, 1]
+                )
         st.session_state.timedomain_signal = signal
         freqdomain_signal = []
         omega = (2 * np.pi * fs) / N1
         for k in range(0, N1):
             real = 0
             imagine = 0
-            for n in range(0, N1):
-                if k == 0 and n == 0:
-                    real += signal[n, 1]
-                else:
-                    e_power = ((2 * math.pi * k * n) / N1)
-                    real += (signal[n, 1] * np.cos(e_power))
-                    imagine += (signal[n, 1] * np.sin(e_power) * -1)
+            if operation == "dft":
+                for n in range(0, N1):
+                    if k == 0 and n == 0:
+                        real += signal[n, 1]
+                    else:
+                        e_power = ((2 * math.pi * k * n) / N1)
+                        real += (signal[n, 1] * np.cos(e_power))
+                        imagine += (signal[n, 1] * np.sin(e_power) * -1)
+            elif operation == "dct":
+                for n in range(0, N1):
+                    real += signal[n, 1] * np.cos((math.pi / (4 * N1)) * ((2 * n) - 1) * ((2 * k) - 1))
+                real = math.sqrt(2 / N1) * real
+
             freqdomain_signal.append([
                 float((k+1) * omega),
                 float(math.sqrt((real ** 2) + (imagine ** 2))),
                 float(math.atan2(imagine, real))
             ])
-            st.session_state.freqdomain_signal = np.array(freqdomain_signal)
+        if st.session_state.dft_file.name == "DCT_input.txt":
+            testSamples = []
+            for samp in freqdomain_signal:
+                testSamples.append(samp[1])
+            ssae(
+                path.relpath("signals/task5/DCT/DCT_output.txt"),
+                testSamples
+            )
+        st.session_state.freqdomain_signal = np.array(freqdomain_signal)
     if SignalType == 1:
+        if dc:
+            if len(signal[0]) == 2:
+                signal[0][0] = 0
+                signal[0][1] = 0
+            if len(signal[0]) == 3:
+                signal[0][1] = 0
+                signal[0][2] = 0
         st.session_state.freqdomain_signal = signal
         timedomain_signal = []
-        for n in range(0, N1):
-            realsum = 0
-            imaginsum = 0
-            for k in range(0, N1):
-                real = signal[k, 1] * np.cos(signal[k, 2])
-                imagine = signal[k, 1] * np.sin(signal[k, 2])
-                e_power = (2 * math.pi * n * k) / N1
-                realsum += round((real * np.cos(e_power)) - (imagine * np.sin(e_power)), 2)
-                imaginsum += round((imagine * np.cos(e_power)) + (real * np.sin(e_power)), 2)
-            if imaginsum != 0:
-                print("Error: while calculating imagine part in idft")
-            sample = realsum / N1
-            timedomain_signal.append([
-                n,
-                float(sample)
-            ])
-            st.session_state.timedomain_signal = np.array(timedomain_signal)
+        if operation == "dft":
+            for n in range(0, N1):
+                realsum = 0
+                imaginsum = 0
+                for k in range(0, N1):
+                    real = signal[k, 1] * np.cos(signal[k, 2])
+                    imagine = signal[k, 1] * np.sin(signal[k, 2])
+                    e_power = (2 * math.pi * n * k) / N1
+                    realsum += round((real * np.cos(e_power)) - (imagine * np.sin(e_power)), 2)
+                    imaginsum += round((imagine * np.cos(e_power)) + (real * np.sin(e_power)), 2)
+                if imaginsum != 0:
+                    print("Error: while calculating imagine part in idft")
+                sample = realsum / N1
+                timedomain_signal.append([
+                    n,
+                    float(sample)
+                ])
+        st.session_state.timedomain_signal = np.array(timedomain_signal)
+
+
+
+
 
 

@@ -2,7 +2,6 @@ from methods import *
 from comparesignals import SignalSamplesAreEqual
 from QuanTest1 import *
 from QuanTest2 import *
-from os import path
 # title
 st.title("DSP Task 1")
 if 'Addition_uploaded_files' not in st.session_state:
@@ -41,6 +40,10 @@ if 'timedomain_signal' not in st.session_state:
     st.session_state.timedomain_signal = []
 if 'freqdomain_signal' not in st.session_state:
     st.session_state.freqdomain_signal = []
+if 'dc_file' not in st.session_state:
+    st.session_state.dc_file = None
+if 'dct_m' not in st.session_state:
+    st.session_state.dct_m = 0
 
 with st.sidebar:
     select = st.radio(
@@ -269,11 +272,21 @@ elif select == "Quantization":
         st.plotly_chart(chart, use_container_width=True)
 elif select == "Frequency Domain":
     with st.sidebar:
-        st.session_state.dft_file = st.file_uploader("Signal", type="txt")
-        st.session_state.dft_fs = st.number_input("FS", min_value=1)
+        freqselect = st.radio("choose operation", ("dft", "dct"), index=0)
+        dc_checkbox = st.checkbox("Remove DC Component")
+        st.session_state.dft_file = st.file_uploader("Signal", type="txt", key="dft")
+        st.session_state.dft_fs = st.number_input("FS", value=1, min_value=1)
     if st.session_state.dft_file is not None:
         SignalType, IsPeriodic, N1, signalm = read_file(st.session_state.dft_file)
-        dft(SignalType, N1, signalm, st.session_state.dft_fs)
+        remove_dc = False
+        if dc_checkbox:
+            remove_dc = True
+        if freqselect == "dft":
+            dft(SignalType=SignalType, N1=N1, signal=signalm, fs=st.session_state.dft_fs, dc=remove_dc)
+        elif freqselect == "dct":
+            dft(SignalType=SignalType, N1=N1, signal=signalm, fs=st.session_state.dft_fs, operation="dct", dc=remove_dc)
+            with st.sidebar:
+                st.session_state.dct_m = st.number_input("M", value=N1, min_value=0, max_value=N1, key="mcoff")
         freqamplitudevalue = ""
         freqphasevalue = ""
         for freq in st.session_state.freqdomain_signal:
@@ -292,9 +305,15 @@ elif select == "Frequency Domain":
         if write_file:
             # Open a text file for writing
             with open("result.txt", "w") as file:
-                lines = f"1\n0\n{len(st.session_state.freqdomain_signal)}\n"
-                for freq in st.session_state.freqdomain_signal:
-                    lines += f"{freq[0]} {freq[1]} {freq[2]}\n"
+                if freqselect == "dft":
+                    lines = f"1\n0\n{len(st.session_state.freqdomain_signal)}\n"
+                    for freq in st.session_state.freqdomain_signal:
+                        lines += f"{freq[0]} {freq[1]} {freq[2]}\n"
+                elif freqselect == "dct":
+                    lines = f"1\n0\n{st.session_state.dct_m}\n"
+                    for freq in st.session_state.freqdomain_signal[:st.session_state.dct_m]:
+                        lines += f"{freq[0]} {freq[1]} {freq[2]}\n"
+
                 # Write the square root value to the file
                 file.write(lines)
 
