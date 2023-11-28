@@ -2,6 +2,8 @@ from methods import *
 from comparesignals import SignalSamplesAreEqual
 from QuanTest1 import *
 from QuanTest2 import *
+from Shift_Fold_Signal import *
+from DerivativeSignal import DerivativeSignal
 # title
 st.title("DSP Task 1")
 if 'Addition_uploaded_files' not in st.session_state:
@@ -42,6 +44,10 @@ if 'freqdomain_signal' not in st.session_state:
     st.session_state.freqdomain_signal = []
 if 'dc_file' not in st.session_state:
     st.session_state.dc_file = None
+if 'timedomain' not in st.session_state:
+    st.session_state.timedomain = None
+if 'convolvetimedomain' not in st.session_state:
+    st.session_state.convolvetimedomain = None
 if 'dct_m' not in st.session_state:
     st.session_state.dct_m = 0
 
@@ -53,7 +59,8 @@ with st.sidebar:
             'Generate Signal',
             'Arithmetic Operations',
             'Quantization',
-            'Frequency Domain'
+            'Frequency Domain',
+            'Time Domain'
         ),
         index=0)
 if select == "Read Signal":
@@ -347,6 +354,72 @@ elif select == "Frequency Domain":
         plot_chart(st.session_state.timedomain_signal)
         st.header("Frequency Domain")
         plot_bar(st.session_state.freqdomain_signal)
+elif select == "Time Domain":
+    with st.sidebar:
+        st.session_state.timedomain = st.file_uploader("Signal", type="txt", key="timedo")
+        smoothing = st.toggle("Smoothing")
+        sharpening = st.toggle("Sharpening")
+        delayingoradvancing = st.toggle("Delaying or Advancing")
+        folding = st.toggle("Folding")
+        convolve = st.toggle("Convolution")
+    if smoothing:
+        with st.sidebar:
+            st.header("Smoothing")
+            smothingws = st.number_input("Smoothing Window Size", min_value=0, value=3)
+        if st.session_state.timedomain is not None:
+            timedomain_smoothing(int(smothingws))
+    if sharpening:
+        DerivativeSignal()
+    if delayingoradvancing and not folding:
+        with st.sidebar:
+            st.header("Delaying or Advancing")
+            daak = st.number_input("K", value=0)
+        if st.session_state.timedomain is not None:
+            daasignal = timedomain_delaying_advance(daak)
+            plot_chart(daasignal)
+    if folding and not delayingoradvancing:
+        if st.session_state.timedomain is not None:
+            SignalType, IsPeriodic, N1, signalm = read_file(st.session_state.timedomain)
+            daasignal = timedomain_folding(signalm)
+            plot_chart(daasignal)
+            if st.session_state.timedomain.name == "input_fold.txt":
+                Shift_Fold_Signal(
+                    path.relpath("signals/lab6/Shifting and Folding/Output_fold.txt"),
+                    daasignal[:, 0],
+                    daasignal[:, 1]
+                )
+    if delayingoradvancing and folding:
+        with st.sidebar:
+            st.header("Delaying or Advancing")
+            daak = st.number_input("K", value=0)
+        if st.session_state.timedomain is not None:
+            daasignal = timedomain_delaying_advance(daak)
+            daasignal = timedomain_folding(daasignal)
+            plot_chart(daasignal)
+            if st.session_state.timedomain.name == "input_fold.txt" and daak == 500:
+                Shift_Fold_Signal(
+                    path.relpath("signals/lab6/Shifting and Folding/Output_ShifFoldedby500.txt"),
+                    daasignal[:, 0],
+                    daasignal[:, 1]
+                )
+            if st.session_state.timedomain.name == "input_fold.txt" and daak == -500:
+                Shift_Fold_Signal(
+                    path.relpath("signals/lab6/Shifting and Folding/Output_ShiftFoldedby-500.txt"),
+                    daasignal[:, 0],
+                    daasignal[:, 1]
+                )
+    if convolve:
+        with st.sidebar:
+            st.header("Convolution")
+            st.session_state.convolvetimedomain = st.file_uploader("Signal", type="txt", key="convolve")
+        if st.session_state.convolvetimedomain is not None:
+            if st.session_state.timedomain is not None:
+                timedomain_convolution()
+
+
+
+
+
 
 
 

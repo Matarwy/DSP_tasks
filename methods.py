@@ -5,6 +5,7 @@ from plotly.subplots import make_subplots
 import math
 from os import path
 from comparesignal2 import SignalSamplesAreEqual as ssae
+from ConvTest import *
 
 
 def when_changed():
@@ -254,6 +255,13 @@ def dft(SignalType, N1, signal, fs, operation="dft", dc=False):
                 float(math.sqrt((real ** 2) + (imagine ** 2))),
                 float(math.atan2(imagine, real))
             ])
+        if dc:
+            if len(freqdomain_signal[0]) == 2:
+                freqdomain_signal[0][0] = 0
+                freqdomain_signal[0][1] = 0
+            if len(freqdomain_signal[0]) == 3:
+                freqdomain_signal[0][1] = 0
+                freqdomain_signal[0][2] = 0
         if st.session_state.dft_file.name == "DCT_input.txt":
             testSamples = []
             for samp in freqdomain_signal:
@@ -293,7 +301,57 @@ def dft(SignalType, N1, signal, fs, operation="dft", dc=False):
         st.session_state.timedomain_signal = np.array(timedomain_signal)
 
 
+def timedomain_smoothing(wz=3):
+    SignalType, IsPeriodic, N1, signalm = read_file(st.session_state.timedomain)
+    signal = []
+    for i in range(0, (len(signalm) - wz + 1)):
+        averagemean = 0
+        for j in range(i, i + wz):
+            averagemean += signalm[j, 1]
+        averagemean /= wz
+        signal.append([i, averagemean])
+    Signal = np.array(signal)
+    st.header("Smoothing")
+    plot_chart(Signal)
+    if st.session_state.timedomain.name == "Signal1.txt" and wz == 3:
+        ssae(path.relpath("signals/lab6/Moving Average/OutMovAvgTest1.txt"), Signal[:, 1])
+    if st.session_state.timedomain.name == "Signal2.txt" and wz == 5:
+        ssae(path.relpath("signals/lab6/Moving Average/OutMovAvgTest2.txt"), Signal[:, 1])
 
 
+def timedomain_delaying_advance(k):
+    SignalType, IsPeriodic, N1, signalm = read_file(st.session_state.timedomain)
+    signal = []
+    for sample in signalm:
+        signal.append([sample[0] + k, sample[1]])
+    Signal = np.array(signal)
+    return Signal
 
 
+def timedomain_folding(signalm):
+    signal = []
+    for i in range(0, len(signalm)):
+        signal.append([signalm[i, 0], signalm[(len(signalm) - i - 1), 1]])
+    Signal = np.array(signal)
+    return Signal
+
+
+def timedomain_convolution():
+    SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.timedomain)
+    SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.convolvetimedomain)
+    signal = []
+    min_index = int(signalm1[0, 0] + signalm2[0, 0])
+    max_index = int(signalm1[-1, 0] + signalm2[-1, 0])
+    for i in range(min_index, max_index + 1):
+        convolutionsum = 0
+        for sample1 in signalm1:
+            for sample2 in signalm2:
+                index = sample1[0] + sample2[0]
+                if index == i:
+                    convolutionsum += (sample1[1] * sample2[1])
+        signal.append([i, convolutionsum])
+    Signal = np.array(signal)
+    plot_chart(Signal)
+    if st.session_state.timedomain.name == "Input_conv_Sig1.txt":
+        if st.session_state.convolvetimedomain.name == "Input_conv_Sig2.txt":
+            ConvTest(Signal[:, 0], Signal[:, 1])
