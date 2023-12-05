@@ -5,7 +5,9 @@ from plotly.subplots import make_subplots
 import math
 from os import path
 from comparesignal2 import SignalSamplesAreEqual as ssae
+from CompareSignal import Compare_Signals as cs_comp
 from ConvTest import *
+import os
 
 
 def when_changed():
@@ -355,3 +357,69 @@ def timedomain_convolution():
     if st.session_state.timedomain.name == "Input_conv_Sig1.txt":
         if st.session_state.convolvetimedomain.name == "Input_conv_Sig2.txt":
             ConvTest(Signal[:, 0], Signal[:, 1])
+
+
+def cross_correlation(signalm1, signalm2):
+    N = max(len(signalm1), len(signalm2))
+    r12 = []
+    divident = np.sqrt((np.sum(signalm1[:, 1] * signalm1[:, 1]) * np.sum(signalm2[:, 1] * signalm2[:, 1]))) / N
+    for i in range(0, N):
+        r12n = 0
+        for j in range(0, N):
+            r12n += signalm1[j, 1] * signalm2[((i + j) % N), 1]
+        r12n /= N
+        r12.append([i, r12n/divident])
+    R12 = np.array(r12)
+    return R12
+
+
+def corr_time_analysis(corr, fs):
+    max_abs_value = max(np.abs(corr[:, 1]))
+    lag = None
+    for i in corr:
+        if i[1] == max_abs_value:
+            lag = i[0]
+    Ts = 1 / fs
+    delay = lag * Ts
+    return delay
+
+
+def template_matching(template_path, class1_path, class2_path):
+    for file in os.listdir(template_path):
+        file_path = os.path.join(template_path, file)
+        test_signal = np.loadtxt(file_path)
+        testtemplate = []
+        for i in range(0, len(test_signal)):
+            testtemplate.append([i, test_signal[i]])
+        Test = np.array(testtemplate)
+
+        class1_max = []
+        class2_max = []
+
+        for file_name in os.listdir(class1_path):
+            file_path = os.path.join(class1_path, file_name)
+            signal_template = np.loadtxt(file_path)
+            signal = []
+            for i in range(0, len(signal_template)):
+                signal.append([i, signal_template[i]])
+            Class1 = np.array(signal)
+            R12class1 = cross_correlation(Test, Class1)
+            class1_max.append(max(R12class1[:, 1]))
+        for file_name in os.listdir(class2_path):
+            file_path = os.path.join(class2_path, file_name)
+            signal_template = np.loadtxt(file_path)
+            signal = []
+            for i in range(0, len(signal_template)):
+                signal.append([i, signal_template[i]])
+            Class2 = np.array(signal)
+            R12class2 = cross_correlation(Test, Class2)
+            class2_max.append(max(R12class2[:, 1]))
+
+
+        maxClass1 = max(class2_max)
+        maxClass2 = max(class1_max)
+
+        if maxClass1 > maxClass2:
+            st.header(f"{file} is Belong to class 1 DOWN")
+        else:
+            st.header(f"{file} is Belong to class 2 UP")

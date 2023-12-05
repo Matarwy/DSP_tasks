@@ -50,6 +50,9 @@ if 'convolvetimedomain' not in st.session_state:
     st.session_state.convolvetimedomain = None
 if 'dct_m' not in st.session_state:
     st.session_state.dct_m = 0
+if 'corrlation' not in st.session_state:
+    st.session_state.corrlation = []
+
 
 with st.sidebar:
     select = st.radio(
@@ -60,7 +63,8 @@ with st.sidebar:
             'Arithmetic Operations',
             'Quantization',
             'Frequency Domain',
-            'Time Domain'
+            'Time Domain',
+            'Correlation'
         ),
         index=0)
 if select == "Read Signal":
@@ -415,8 +419,36 @@ elif select == "Time Domain":
         if st.session_state.convolvetimedomain is not None:
             if st.session_state.timedomain is not None:
                 timedomain_convolution()
+elif select == "Correlation":
+    with st.sidebar:
+        corr_mode = st.radio("Select", ("Cross-Croolation", "Time Analysis", "Template matching"))
+        if corr_mode == "Cross-Croolation" or corr_mode == "Time Analysis":
+            st.session_state.corrlation = st.file_uploader("Signal", type="txt", key="corr1", accept_multiple_files=True)
 
-
+    if len(st.session_state.corrlation) > 1:
+        SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.corrlation[0])
+        SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.corrlation[1])
+        R12 = cross_correlation(signalm1, signalm2)
+        if st.session_state.corrlation[0].name == 'Corr_input signal1.txt':
+            if st.session_state.corrlation[1].name == 'Corr_input signal2.txt':
+                cs_comp(path.relpath("signals/Task7/Point1 Correlation/CorrOutput.txt"), R12[:, 0], R12[:, 1])
+        plot_chart(R12)
+        if corr_mode == "Time Analysis":
+            with st.sidebar:
+                Fs = int(st.number_input("FS", value=100))
+            delay = corr_time_analysis(R12, Fs)
+            st.write(f"Time Delay: %s" % delay)
+    elif corr_mode == "Template matching":
+        with st.sidebar:
+            class1 = st.text_input(
+                'Class 1 path', "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Class 1")
+            class2 = st.text_input(
+                'Class 2 path', "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Class 2")
+            template = st.text_input(
+                'Test path', 'C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Test Signals')
+            button_click = st.button('Match', type="primary")
+        if button_click:
+            template_matching(template, class1, class2)
 
 
 
