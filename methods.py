@@ -264,14 +264,14 @@ def dft(SignalType, N1, signal, fs, operation="dft", dc=False):
             if len(freqdomain_signal[0]) == 3:
                 freqdomain_signal[0][1] = 0
                 freqdomain_signal[0][2] = 0
-        if st.session_state.dft_file.name == "DCT_input.txt":
-            testSamples = []
-            for samp in freqdomain_signal:
-                testSamples.append(samp[1])
-            ssae(
-                path.relpath("signals/task5/DCT/DCT_output.txt"),
-                testSamples
-            )
+        # if st.session_state.dft_file.name == "DCT_input.txt":
+        #     testSamples = []
+        #     for samp in freqdomain_signal:
+        #         testSamples.append(samp[1])
+        #     ssae(
+        #         path.relpath("signals/task5/DCT/DCT_output.txt"),
+        #         testSamples
+        #     )
         st.session_state.freqdomain_signal = np.array(freqdomain_signal)
     if SignalType == 1:
         if dc:
@@ -293,8 +293,8 @@ def dft(SignalType, N1, signal, fs, operation="dft", dc=False):
                     e_power = (2 * math.pi * n * k) / N1
                     realsum += round((real * np.cos(e_power)) - (imagine * np.sin(e_power)), 2)
                     imaginsum += round((imagine * np.cos(e_power)) + (real * np.sin(e_power)), 2)
-                if imaginsum != 0:
-                    print("Error: while calculating imagine part in idft")
+                # if imaginsum != 0:
+                #     print("Error: while calculating imagine part in idft")
                 sample = realsum / N1
                 timedomain_signal.append([
                     n,
@@ -354,9 +354,9 @@ def timedomain_convolution():
         signal.append([i, convolutionsum])
     Signal = np.array(signal)
     plot_chart(Signal)
-    if st.session_state.timedomain.name == "Input_conv_Sig1.txt":
-        if st.session_state.convolvetimedomain.name == "Input_conv_Sig2.txt":
-            ConvTest(Signal[:, 0], Signal[:, 1])
+    # if st.session_state.timedomain.name == "Input_conv_Sig1.txt":
+    #     if st.session_state.convolvetimedomain.name == "Input_conv_Sig2.txt":
+    #         ConvTest(Signal[:, 0], Signal[:, 1])
 
 
 def cross_correlation(signalm1, signalm2):
@@ -379,6 +379,7 @@ def corr_time_analysis(corr, fs):
     for i in corr:
         if i[1] == max_abs_value:
             lag = i[0]
+            break
     Ts = 1 / fs
     delay = lag * Ts
     return delay
@@ -423,3 +424,80 @@ def template_matching(template_path, class1_path, class2_path):
             st.header(f"{file} is Belong to class 1 DOWN")
         else:
             st.header(f"{file} is Belong to class 2 UP")
+
+
+def fastconvv():
+    SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.fastx)
+    SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.fasth)
+    length = N11 + N12 - 1
+    x = list(signalm1)
+    h = list(signalm2)
+    for i in range(length):
+        if len(x) == i:
+            index = x[i - 1][0] + 1
+            x.append([index, 0])
+        if len(h) == i:
+            index = x[i - 1][0] + 1
+            h.append([index, 0])
+    xnp = np.array(x)
+    hnp = np.array(h)
+    dft(SignalType=SignalType1, N1=len(xnp), signal=xnp, fs=1)
+    X = []
+    for smaple in st.session_state.freqdomain_signal:
+        X.append(smaple[1] * np.exp(1j * smaple[2]))
+    dft(SignalType=SignalType2, N1=len(hnp), signal=hnp, fs=1)
+    H=[]
+    for smaple in st.session_state.freqdomain_signal:
+        H.append(smaple[1] * np.exp(1j * smaple[2]))
+    Xnp = np.array(X)
+    Hnp = np.array(H)
+    y = Xnp * Hnp
+    Y = []
+    for sample in y:
+        Y.append([
+            st.session_state.freqdomain_signal[0, 0],
+            float(math.sqrt((sample.real ** 2) + (sample.imag ** 2))),
+            float(math.atan2(sample.imag, sample.real))
+        ])
+    Ynp = np.array(Y)
+    dft(SignalType=1, N1=len(Ynp), signal=Ynp, fs=1)
+    resault_signal = st.session_state.timedomain_signal
+    ressamples = [round(i) for i in resault_signal[:, 1]]
+    # if st.session_state.fastx.name == "Input_conv_Sig1.txt":
+    #     if st.session_state.fasth.name == "Input_conv_Sig2.txt":
+    #         ConvTest(resault_signal[:, 0], ressamples)
+    plot_chart(resault_signal)
+
+def fastcorr():
+    SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.fastx)
+    SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.fasth)
+    xnp = signalm1
+    hnp = signalm2
+    dft(SignalType=SignalType1, N1=len(xnp), signal=xnp, fs=1)
+    X = []
+    for smaple in st.session_state.freqdomain_signal:
+        X.append(smaple[1] * np.exp(1j * smaple[2]))
+    dft(SignalType=SignalType2, N1=len(hnp), signal=hnp, fs=1)
+    H = []
+    for smaple in st.session_state.freqdomain_signal:
+        H.append(smaple[1] * np.exp(1j * smaple[2]))
+    Xnp = np.array(X)
+    Hnp = np.array(H)
+
+    y = Xnp.conjugate() * Hnp
+    Y = []
+    for sample in y:
+        Y.append([
+            st.session_state.freqdomain_signal[0, 0],
+            float(math.sqrt((sample.real ** 2) + (sample.imag ** 2))),
+            float(math.atan2(sample.imag, sample.real))
+        ])
+    Ynp = np.array(Y)
+    dft(SignalType=1, N1=len(Ynp), signal=Ynp, fs=1)
+    resault_signal = st.session_state.timedomain_signal
+    for i in range(0, len(resault_signal)):
+        resault_signal[i, 1] /= N11
+    # if st.session_state.fastx.name == 'Corr_input signal1.txt':
+    #     if st.session_state.fasth.name == 'Corr_input signal2.txt':
+    #         cs_comp(path.relpath("signals/Task7/Point1 Correlation/CorrOutput.txt"), resault_signal[:, 0], resault_signal[:, 1])
+    plot_chart(resault_signal)

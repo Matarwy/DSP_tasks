@@ -52,6 +52,10 @@ if 'dct_m' not in st.session_state:
     st.session_state.dct_m = 0
 if 'corrlation' not in st.session_state:
     st.session_state.corrlation = []
+if 'fastx' not in st.session_state:
+    st.session_state.fastx = None
+if 'fasth' not in st.session_state:
+    st.session_state.fasth = None
 
 
 with st.sidebar:
@@ -283,10 +287,14 @@ elif select == "Quantization":
         st.plotly_chart(chart, use_container_width=True)
 elif select == "Frequency Domain":
     with st.sidebar:
-        freqselect = st.radio("choose operation", ("dft", "dct"), index=0)
-        dc_checkbox = st.checkbox("Remove DC Component")
-        st.session_state.dft_file = st.file_uploader("Signal", type="txt", key="dft")
-        st.session_state.dft_fs = st.number_input("FS", value=1, min_value=1)
+        freqselect = st.radio("choose operation", ("dft", "dct", "fast convolution", "fast correlation"), index=0)
+        if freqselect == "dft" or freqselect == "dct":
+            dc_checkbox = st.checkbox("Remove DC Component")
+            st.session_state.dft_file = st.file_uploader("Signal", type="txt", key="dft")
+            st.session_state.dft_fs = st.number_input("FS", value=1, min_value=1)
+        if freqselect == "fast convolution" or freqselect == "fast correlation":
+            st.session_state.fastx = st.file_uploader("X", type="txt", key="fastdftx")
+            st.session_state.fasth = st.file_uploader("H", type="txt", key="fastdfth")
     if st.session_state.dft_file is not None:
         SignalType, IsPeriodic, N1, signalm = read_file(st.session_state.dft_file)
         remove_dc = False
@@ -358,6 +366,13 @@ elif select == "Frequency Domain":
         plot_chart(st.session_state.timedomain_signal)
         st.header("Frequency Domain")
         plot_bar(st.session_state.freqdomain_signal)
+    if st.session_state.fastx is not None:
+        if st.session_state.fasth is not None:
+            if freqselect == "fast convolution":
+                fastconvv()
+            elif freqselect == "fast correlation":
+                fastcorr()
+
 elif select == "Time Domain":
     with st.sidebar:
         st.session_state.timedomain = st.file_uploader("Signal", type="txt", key="timedo")
