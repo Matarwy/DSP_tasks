@@ -1,9 +1,12 @@
+import os.path
+
 from methods import *
 from comparesignals import SignalSamplesAreEqual
 from QuanTest1 import *
 from QuanTest2 import *
 from Shift_Fold_Signal import *
 from DerivativeSignal import DerivativeSignal
+from CompareSignalFir import Compare_Signals as TestFir
 # title
 st.title("DSP Task 1")
 if 'Addition_uploaded_files' not in st.session_state:
@@ -67,8 +70,9 @@ with st.sidebar:
             'Arithmetic Operations',
             'Quantization',
             'Frequency Domain',
+            'Correlation',
             'Time Domain',
-            'Correlation'
+            'Practical'
         ),
         index=0)
 if select == "Read Signal":
@@ -371,8 +375,40 @@ elif select == "Frequency Domain":
             if freqselect == "fast convolution":
                 fastconvv()
             elif freqselect == "fast correlation":
-                fastcorr()
+                SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.fastx)
+                SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.fasth)
+                resault_signal = fastcorr(signalm1, signalm2)
+                plot_chart(resault_signal)
+elif select == "Correlation":
+    with st.sidebar:
+        corr_mode = st.radio("Select", ("Cross-Croolation", "Time Analysis", "Template matching"))
+        if corr_mode == "Cross-Croolation" or corr_mode == "Time Analysis":
+            st.session_state.corrlation = st.file_uploader("Signal", type="txt", key="corr1", accept_multiple_files=True)
 
+    if len(st.session_state.corrlation) > 1:
+        SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.corrlation[0])
+        SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.corrlation[1])
+        R12 = cross_correlation(signalm1, signalm2)
+        if st.session_state.corrlation[0].name == 'Corr_input signal1.txt':
+            if st.session_state.corrlation[1].name == 'Corr_input signal2.txt':
+                cs_comp(path.relpath("signals/Task7/Point1 Correlation/CorrOutput.txt"), R12[:, 0], R12[:, 1])
+        plot_chart(R12)
+        if corr_mode == "Time Analysis":
+            with st.sidebar:
+                Fs = int(st.number_input("FS", value=100))
+            delay = corr_time_analysis(R12, Fs)
+            st.write(f"Time Delay: %s" % delay)
+    elif corr_mode == "Template matching":
+        with st.sidebar:
+            class1 = st.text_input(
+                'Class 1 path', "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Class 1")
+            class2 = st.text_input(
+                'Class 2 path', "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Class 2")
+            template = st.text_input(
+                'Test path', 'C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Test Signals')
+            button_click = st.button('Match', type="primary")
+        if button_click:
+            template_matching(template, class1, class2)
 elif select == "Time Domain":
     with st.sidebar:
         st.session_state.timedomain = st.file_uploader("Signal", type="txt", key="timedo")
@@ -381,6 +417,8 @@ elif select == "Time Domain":
         delayingoradvancing = st.toggle("Delaying or Advancing")
         folding = st.toggle("Folding")
         convolve = st.toggle("Convolution")
+        filtering = st.toggle("Filtering")
+        resample = st.toggle("Resampling")
     if smoothing:
         with st.sidebar:
             st.header("Smoothing")
@@ -433,42 +471,169 @@ elif select == "Time Domain":
             st.session_state.convolvetimedomain = st.file_uploader("Signal", type="txt", key="convolve")
         if st.session_state.convolvetimedomain is not None:
             if st.session_state.timedomain is not None:
-                timedomain_convolution()
-elif select == "Correlation":
-    with st.sidebar:
-        corr_mode = st.radio("Select", ("Cross-Croolation", "Time Analysis", "Template matching"))
-        if corr_mode == "Cross-Croolation" or corr_mode == "Time Analysis":
-            st.session_state.corrlation = st.file_uploader("Signal", type="txt", key="corr1", accept_multiple_files=True)
-
-    if len(st.session_state.corrlation) > 1:
-        SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.corrlation[0])
-        SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.corrlation[1])
-        R12 = cross_correlation(signalm1, signalm2)
-        if st.session_state.corrlation[0].name == 'Corr_input signal1.txt':
-            if st.session_state.corrlation[1].name == 'Corr_input signal2.txt':
-                cs_comp(path.relpath("signals/Task7/Point1 Correlation/CorrOutput.txt"), R12[:, 0], R12[:, 1])
-        plot_chart(R12)
-        if corr_mode == "Time Analysis":
-            with st.sidebar:
-                Fs = int(st.number_input("FS", value=100))
-            delay = corr_time_analysis(R12, Fs)
-            st.write(f"Time Delay: %s" % delay)
-    elif corr_mode == "Template matching":
+                SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.timedomain)
+                SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.convolvetimedomain)
+                ResSignal = timedomain_convolution(signalm1, signalm2)
+                plot_chart(ResSignal)
+    if filtering:
         with st.sidebar:
-            class1 = st.text_input(
-                'Class 1 path', "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Class 1")
-            class2 = st.text_input(
-                'Class 2 path', "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Class 2")
-            template = st.text_input(
-                'Test path', 'C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Lab7\SC and Csys\Task7\point3 Files\Test Signals')
-            button_click = st.button('Match', type="primary")
-        if button_click:
-            template_matching(template, class1, class2)
+            filtertype = st.selectbox(
+                'Filter Type?',
+                ('Low Pass', 'High Pass', 'Band Pass', 'Band Stop'))
+            sampling_frequency = st.number_input('Sampling Frequency')
+            stop_attenuation = st.number_input('δs')
+            transition_band = st.number_input('Transition Band')
+        hn = []
+        if filtertype == 'Low Pass' or filtertype == 'High Pass':
+            with st.sidebar:
+                cut_off_frequancy = st.number_input('Cut off Frequency')
+            if cut_off_frequancy != 0:
+                hn = fir_hn_w(
+                    filtertype,
+                    sampling_frequency,
+                    transition_band,
+                    stop_attenuation,
+                    cutofreq=cut_off_frequancy
+                )
+        if filtertype == 'Band Pass' or filtertype == 'Band Stop':
+            with st.sidebar:
+                f1 = st.number_input("F1")
+                f2 = st.number_input("F2")
+            if f1 != 0 and f2 != 0:
+                hn = fir_hn_w(
+                    filtertype,
+                    sampling_frequency,
+                    transition_band,
+                    stop_attenuation,
+                    cutofreq1=f1,
+                    cutofreq2=f2
+                )
+        if len(hn) != 0:
+            st.header(f"Filter {filtertype}")
+            plot_chart(hn)
+            np.savetxt('coefficients.txt', hn)
 
+        if st.session_state.timedomain is not None:
+            if len(hn) != 0:
+                st.header(f"Filtered signal")
+                SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.timedomain)
+                ResSignal = timedomain_convolution(signalm1, hn)
+                plot_chart(ResSignal)
+        with st.sidebar:
+            runtests = st.button('Run tests', type="primary")
+        if runtests:
+            hn = fir_hn_w(filter_type="High Pass", fs=8000, transition_band=500, stop_attenuation=70, cutofreq=1500)
+            print(hn)
+            TestFir(
+                os.path.relpath("signals/practical/FIR test cases/Testcase 3/HPFCoefficients.txt"),
+                hn[:, 0], hn[:, 1],
+            )
 
+            hn = fir_hn_w(filter_type="Low Pass", fs=8000, transition_band=500, stop_attenuation=50, cutofreq=1500)
+            # print(hn)
+            TestFir(
+                os.path.relpath("signals/practical/FIR test cases/Testcase 1/LPFCoefficients.txt"),
+                hn[:, 0], hn[:, 1],
+            )
+            hn = fir_hn_w(
+                filter_type="Band Pass", fs=1000, transition_band=50, stop_attenuation=60, cutofreq1=150, cutofreq2=250,)
+            TestFir(
+                os.path.relpath("signals/practical/FIR test cases/Testcase 5/BPFCoefficients.txt"),
+                hn[:, 0], hn[:, 1],
+            )
+            # print(hn)
+            hn = fir_hn_w(filter_type="Band Stop", fs=1000, transition_band=50, stop_attenuation=60, cutofreq1=150, cutofreq2=250)
+            TestFir(
+                os.path.relpath("signals/practical/FIR test cases/Testcase 7/BSFCoefficients.txt"),
+                hn[:, 0], hn[:, 1],
+            )
+            print(hn)
+    if resample:
+        with st.sidebar:
+            sampling_frequency = st.number_input('Sampling Frequency', value=8000)
+            stop_attenuation = st.number_input('δs', value=50)
+            transition_band = st.number_input('Transition Band', value=500)
+            cut_off_frequancy = st.number_input('Cut off Frequency', value=1500)
+            L = int(st.number_input('L'))
+            M = int(st.number_input('M'))
+            # runTests = st.number_input('Run Tests', type='primary')
+        if st.session_state.timedomain is not None:
+            SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.timedomain)
+            hn = fir_hn_w(
+                'Low Pass',
+                sampling_frequency,
+                transition_band,
+                stop_attenuation,
+                cutofreq=cut_off_frequancy
+            )
+            if L == 0 and M == 0:
+                st.write("Error L = 0 and M = 0")
+            elif L != 0 and M == 0:
+                upsample = []
+                index = signalm1[0, 0]
+                for sampl in signalm1:
+                    upsample.append([index, sampl[1]])
+                    index += 1
+                    for i in range(0, L - 1):
+                        upsample.append([index, 0])
+                        index += 1
+                UpSample = np.array(upsample)
+                ResSignal = timedomain_convolution(UpSample, hn)
+                plot_chart(ResSignal)
+            elif L == 0 and M != 0:
+                downsample = []
+                ResSignal = timedomain_convolution(signalm1, hn)
+                for i in range(0, len(ResSignal)):
+                    downsample.append([ResSignal[i, 0], ResSignal[i, 1]])
+                    i += M
+                DownSample = np.array(downsample)
+                st.header("DownSample")
+                plot_chart(DownSample)
+            elif L != 0 and M != 0:
+                upsample = []
+                downsample = []
+                index = signalm1[0, 0]
+                for sampl in signalm1:
+                    upsample.append([index, sampl[1]])
+                    index += 1
+                    for i in range(0, L - 1):
+                        upsample.append([index, 0])
+                        index += 1
+                UpSample = np.array(upsample)
+                ResSignal = timedomain_convolution(UpSample, hn)
+                i = 0
+                for i in range(0, int(len(ResSignal) / M)):
+                    downsample.append([ResSignal[i, 0], ResSignal[i*M, 1]])
 
+                DownSample = np.array(downsample)
+                print(DownSample)
+                st.header("DownSample")
+                plot_chart(DownSample)
+                if st.session_state.timedomain.name == "ecg400.txt":
+                    TestFir(
+                        os.path.relpath("signals/practical/Sampling test cases/Testcase 3/Sampling_Up_Down.txt"),
+                        DownSample[:, 0],
+                        DownSample[:, 1]
+                    )
 
-
-
+elif select == "Practical":
+    with st.sidebar:
+        a_path = st.text_input(
+            "A Path","C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Practical Task\Practical task 2\A"
+        )
+        b_path = st.text_input(
+            "B Path", "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Practical Task\Practical task 2\B"
+        )
+        test_path = st.text_input(
+            "Test Folder", "C:\\Users\Matarwy\Documents\FCIS\DSP\Labs\Practical Task\Practical task 2\Test Folder"
+        )
+        Fs = st.number_input("Fs", value=8000)
+        minF = st.number_input("minF", value=1500)
+        maxF = st.number_input("maxF", value= 1800)
+        L = st.number_input("L")
+        M = st.number_input("M")
+        button_click = st.button('Start', type="primary")
+    if button_click:
+        practice(a_path, b_path, test_path, Fs, minF, maxF, L, M)
 
 

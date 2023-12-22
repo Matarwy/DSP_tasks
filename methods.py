@@ -338,9 +338,8 @@ def timedomain_folding(signalm):
     return Signal
 
 
-def timedomain_convolution():
-    SignalType1, IsPeriodic1, N11, signalm1 = read_file(st.session_state.timedomain)
-    SignalType2, IsPeriodic2, N12, signalm2 = read_file(st.session_state.convolvetimedomain)
+def timedomain_convolution(signalm1, signalm2):
+
     signal = []
     min_index = int(signalm1[0, 0] + signalm2[0, 0])
     max_index = int(signalm1[-1, 0] + signalm2[-1, 0])
@@ -353,14 +352,14 @@ def timedomain_convolution():
                     convolutionsum += (sample1[1] * sample2[1])
         signal.append([i, convolutionsum])
     Signal = np.array(signal)
-    plot_chart(Signal)
+    return Signal
     # if st.session_state.timedomain.name == "Input_conv_Sig1.txt":
     #     if st.session_state.convolvetimedomain.name == "Input_conv_Sig2.txt":
     #         ConvTest(Signal[:, 0], Signal[:, 1])
 
 
 def cross_correlation(signalm1, signalm2):
-    N = max(len(signalm1), len(signalm2))
+    N = min(len(signalm1), len(signalm2))
     r12 = []
     divident = np.sqrt((np.sum(signalm1[:, 1] * signalm1[:, 1]) * np.sum(signalm2[:, 1] * signalm2[:, 1]))) / N
     for i in range(0, N):
@@ -500,4 +499,261 @@ def fastcorr():
     # if st.session_state.fastx.name == 'Corr_input signal1.txt':
     #     if st.session_state.fasth.name == 'Corr_input signal2.txt':
     #         cs_comp(path.relpath("signals/Task7/Point1 Correlation/CorrOutput.txt"), resault_signal[:, 0], resault_signal[:, 1])
-    plot_chart(resault_signal)
+    return resault_signal
+
+
+
+def fir_window_type(_stop_attenuation):
+    if 0 <= _stop_attenuation <= 21:
+        return "Rectangular"
+    if 21 < _stop_attenuation <= 44:
+        return "Hanning"
+    if 44 < _stop_attenuation <= 53:
+        return "Hamming"
+    if 53 < _stop_attenuation <= 74:
+        return "Blackman"
+    return ""
+
+
+def fir_filter_length(window_type, fs, transition_band):
+    N = 0
+    if window_type == "Rectangular":
+        N = 0.9 * fs / transition_band
+    if window_type == "Hanning":
+        N = 3.1 * fs / transition_band
+    if window_type == "Hamming":
+        N = 3.3 * fs / transition_band
+    if window_type == "Blackman":
+        N = 5.5 * fs / transition_band
+    N = int(N)
+    if N % 2 == 0:
+        N += 1
+    return N
+
+
+def fir_window_function(n, N, window_type):
+    w_value = 0
+    if window_type == "Rectangular":
+        w_value = 1
+    if window_type == "Hanning":
+        w_value = 0.5 + 0.5 * math.cos(2 * math.pi * n / N)
+    if window_type == "Hamming":
+        w_value = 0.54 + 0.46 * math.cos(2 * math.pi * n / N)
+    if window_type == "Blackman":
+        w_value = 0.42 + 0.5 * math.cos((2 * math.pi * n) / (N - 1)) + 0.08 * math.cos((4 * math.pi * n) / (N - 1))
+    return w_value
+
+
+def fir_low_pass(n,fs, trasnsitionband, cutoffrequancy):
+    fc = (cutoffrequancy + (trasnsitionband / 2)) / fs
+    if n == 0:
+        hd = 2 * fc
+    else:
+        hd = (2 * fc * math.sin(n * 2 * math.pi * fc)) / (n * 2 * math.pi * fc)
+    return hd
+
+
+def fir_high_pass(n,fs,trasnsitionband, cutoffrequancy):
+    fc = (cutoffrequancy + (trasnsitionband / 2)) / fs
+    if n == 0:
+        hd = 1 - (2 * fc)
+    else:
+        hd = -1 * ((2 * fc * math.sin(n * 2 * math.pi * fc)) / (n * 2 * math.pi * fc))
+    return hd
+
+
+def fir_band_bass(n,fs,trasnsitionband, cutoffrequancy1, cutoffrequancy2):
+    fc1 = (cutoffrequancy1 - trasnsitionband / 2) / fs
+    fc2 = (cutoffrequancy2 + trasnsitionband / 2) / fs
+    if n == 0:
+        hd = 2 * (fc2 - fc1)
+    else:
+        hd = 2 * fc2 * math.sin(n * 2 * math.pi * fc2) / (n * 2 * math.pi * fc2)
+        hd -= 2 * fc1 * math.sin(n * 2 * math.pi * fc1) / (n * 2 * math.pi * fc1)
+    return hd
+
+
+def fir_band_stop(n,fs,trasnsitionband, cutoffrequancy1, cutoffrequancy2):
+    fc1 = (cutoffrequancy1 - trasnsitionband / 2) / fs
+    fc2 = (cutoffrequancy2 + trasnsitionband / 2) / fs
+    if n == 0:
+        hd = 1 - (2 * (fc2 - fc1))
+    else:
+        hd = (2 * fc1 * math.sin(n * 2 * math.pi * fc1)) / (n * 2 * math.pi * fc1)
+        hd -= (2 * fc2 * math.sin(n * 2 * math.pi * fc2)) / (n * 2 * math.pi * fc2)
+    return hd
+
+
+def fir_hn_w(filter_type, fs, transition_band, stop_attenuation, cutofreq=0, cutofreq1=0, cutofreq2=0):
+    window_type = fir_window_type(stop_attenuation)
+    filter_lenghth = fir_filter_length(window_type, fs, transition_band)
+    half_lenght = (filter_lenghth - 1) / 2
+    hd = []
+    for i in range(0, int(half_lenght + 1)):
+        hdn = 0
+        if filter_type == 'Low Pass':
+            hdn = fir_low_pass(i, fs, transition_band, cutofreq)
+        elif filter_type == 'High Pass':
+            hdn = fir_high_pass(i, fs, transition_band, cutofreq)
+        elif filter_type == 'Band Pass':
+            hdn = fir_band_bass(i, fs, transition_band, cutofreq1, cutofreq2)
+        elif filter_type == 'Band Stop':
+            hdn = fir_band_stop(i, fs, transition_band, cutofreq1, cutofreq2)
+        w = fir_window_function(i, filter_lenghth, window_type)
+        hd.append(w * hdn)
+    hn = hd[1:]
+    # print(hn)
+    hn.reverse()
+    # print(hn)
+    hn.extend(hd)
+    Hn = []
+    first_index = -1 * half_lenght
+    for i in range(0, len(hn)):
+        Hn.append([first_index, hn[i]])
+        first_index += 1
+    HN = np.array(Hn)
+    return HN
+
+
+def resample(signal, L, M, sampling_frequency, transition_band, stop_attenuation, cut_off_frequancy):
+    hn = fir_hn_w(
+        'Low Pass',
+        sampling_frequency,
+        transition_band,
+        stop_attenuation,
+        cutofreq=cut_off_frequancy
+    )
+    if L == 0 and M == 0:
+        st.write("Error L = 0 and M = 0")
+    elif L != 0 and M == 0:
+        upsample = []
+        index = signal[0, 0]
+        for sampl in signal:
+            upsample.append([index, sampl[1]])
+            index += 1
+            for i in range(0, L - 1):
+                upsample.append([index, 0])
+                index += 1
+        UpSample = np.array(upsample)
+        ResSignal = timedomain_convolution(UpSample, hn)
+        plot_chart(ResSignal)
+    elif L == 0 and M != 0:
+        downsample = []
+        ResSignal = timedomain_convolution(signal, hn)
+        for i in range(0, len(ResSignal)):
+            downsample.append([ResSignal[i, 0], ResSignal[i, 1]])
+            i += M
+        DownSample = np.array(downsample)
+        st.header("DownSample")
+        plot_chart(DownSample)
+    elif L != 0 and M != 0:
+        upsample = []
+        downsample = []
+        index = signal[0, 0]
+        for sampl in signal:
+            upsample.append([index, sampl[1]])
+            index += 1
+            for i in range(0, L - 1):
+                upsample.append([index, 0])
+                index += 1
+        UpSample = np.array(upsample)
+        ResSignal = timedomain_convolution(UpSample, hn)
+        for i in range(0, len(ResSignal)):
+            downsample.append([ResSignal[i, 0], ResSignal[i, 1]])
+            i += M
+        DownSample = np.array(downsample)
+        st.header("DownSample")
+        plot_chart(DownSample)
+
+
+def practice(a_path, b_path, test_path, Fs, minF, maxF, L, M):
+    for testFile in os.listdir(test_path):
+        st.header(testFile)
+        file_path = os.path.join(test_path, testFile)
+        test_signal = np.loadtxt(file_path)
+        testtemplate = []
+        for i in range(0, len(test_signal)):
+            testtemplate.append([i, test_signal[i]])
+        Test = np.array(testtemplate)
+        st.write("Orignal")
+        plot_chart(Test)
+        hn = fir_hn_w("Band Pass", Fs, 500, 50, cutofreq1=minF, cutofreq2=maxF)
+        #filtering
+        convolvedSignal = timedomain_convolution(Test, hn)
+        # resampling
+
+        if L != 0:
+            newFs = Fs * L
+            if newFs >= 2 * maxF:
+                print("Resampling")
+        else:
+            st.write("newFs is not valid")
+        # remove dc
+        meanofsignal = np.sum(convolvedSignal[:, 1]) / len(convolvedSignal)
+        for sam in convolvedSignal:
+            sam[1] -= meanofsignal
+        # normalize
+        min_value = np.min(convolvedSignal)
+        max_value = np.max(convolvedSignal)
+        normalized_signal = (convolvedSignal - min_value) / (max_value - min_value) * 2 - 1
+        # auto corr
+        auto_cross_signal = cross_correlation(normalized_signal, normalized_signal)
+        st.write("Auto Correlated Signal")
+        plot_chart(auto_cross_signal)
+        # preserve
+        if len(auto_cross_signal) % 2 == 0:
+            preserving_signal = auto_cross_signal[int(len(auto_cross_signal)/2):]
+        else:
+            preserving_signal = auto_cross_signal[int((len(auto_cross_signal) - 1) / 2):]
+        st.write("Reserved needed coefficients ")
+        plot_chart(preserving_signal)
+        N = len(preserving_signal)
+        dct_result = []
+        for k in range(N):
+            sum_value = 0.0
+            for n in range(N):
+                sum_value += preserving_signal[n] * np.cos(np.pi * k * (2 * n + 1) / (2 * N))
+            dct_result.append(np.sqrt(2.0 / N) * sum_value)
+            if k == 0:
+                dct_result[k] /= np.sqrt(2)
+        dct_signal = np.array(dct_result)
+        st.write("After computed DCT coefficients")
+        plot_chart(dct_signal)
+        none_zero_dct = []
+        for i in dct_signal:
+            if i[1] != 0:
+                none_zero_dct.append([i[0], i[1]])
+        None_zero = np.array(none_zero_dct)
+        # matching
+        class1_max = []
+        class2_max = []
+
+        for file_name in os.listdir(a_path):
+            file_path = os.path.join(a_path, file_name)
+            signal_template = np.loadtxt(file_path)
+            signal = []
+            for i in range(0, len(signal_template)):
+                signal.append([i, signal_template[i]])
+            Class1 = np.array(signal)
+            R12class1 = cross_correlation(None_zero, Class1)
+            class1_max.append(max(R12class1[:, 1]))
+        for file_name in os.listdir(b_path):
+            file_path = os.path.join(b_path, file_name)
+            signal_template = np.loadtxt(file_path)
+            signal = []
+            for i in range(0, len(signal_template)):
+                signal.append([i, signal_template[i]])
+            Class2 = np.array(signal)
+            R12class2 = cross_correlation(None_zero, Class2)
+            class2_max.append(max(R12class2[:, 1]))
+
+        maxClass1 = max(class2_max)
+        maxClass2 = max(class1_max)
+
+        if maxClass1 > maxClass2:
+            st.header(f"{testFile} is Belong to A")
+        else:
+            st.header(f"{testFile} is Belong to B")
+
+
+
